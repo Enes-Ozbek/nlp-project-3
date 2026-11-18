@@ -1,0 +1,8 @@
+# A2 / A3 (Conformer CTC and RNN-T from scratch). Exact versions used; rewritten by common/pin_requirements.py after each Kaggle run.
+# On Kaggle, torch, torchaudio, numpy and scipy are the preinstalled GPU builds (the notebook does not reinstall them).
+torch==2.15.0
+torchaudio==2.11.1
+numpy==2.4.6
+scipy==1.17.1
+soundfile==0.14.0
+jiwer==4.0.0
