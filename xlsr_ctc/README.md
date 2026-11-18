@@ -18,7 +18,7 @@ Start checkpoint: [`facebook/wav2vec2-xls-r-300m`](https://huggingface.co/facebo
 ## Files
 
 - `train.py`: training, dev evaluation, best checkpoint, full checkpoint for resuming (`--resume-from`).
-- `predict.py`: greedy decoding for `dev` / `test` / `fleurs_test` (test needs `--allow-test`); saves log-probabilities per clip for the KenLM decoder (C3, `lm/`).
+- `predict.py`: greedy decoding for `dev` / `test` (test needs `--allow-test`); saves log-probabilities per clip for the KenLM decoder (C3, `lm/`).
 - `push_to_hub.py`: uploads the best checkpoint with a model card to Hugging Face. The token comes from Kaggle Secrets or `huggingface-cli login`, never from code.
 - `xlsr_lib.py`: vocabulary, data loading, batching, decoding.
 
@@ -27,7 +27,7 @@ Start checkpoint: [`facebook/wav2vec2-xls-r-300m`](https://huggingface.co/facebo
 ```bash
 python xlsr_ctc/train.py --out-dir runs/xlsr
 python xlsr_ctc/predict.py --model runs/xlsr/best --split dev --logits-dir runs/logits
-python xlsr_ctc/predict.py --model runs/xlsr/best --split test fleurs_test --allow-test --logits-dir runs/logits
+python xlsr_ctc/predict.py --model runs/xlsr/best --split test --allow-test --logits-dir runs/logits
 python xlsr_ctc/push_to_hub.py --model-dir runs/xlsr/best --repo <hf-user>/<name>
 ```
 

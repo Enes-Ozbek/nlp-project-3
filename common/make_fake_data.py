@@ -1,7 +1,7 @@
 """Make a small FAKE dataset to check that the training and prediction code runs (no real speech).
 
 Each letter becomes a short tone, so a model can learn it in a few minutes. Output folder:
-  <out>/clean/{train,dev,test,fleurs_test}.csv   same columns as data/clean (absolute paths)
+  <out>/clean/{train,dev,test}.csv   same columns as data/clean (absolute paths)
   <out>/raw/usc/train/<speaker>/<clip>.flac+.txt same layout as data/raw (for rule8_flag.py)
 Never commit this output and never report numbers from it.
 
@@ -49,7 +49,7 @@ def main():
     args = ap.parse_args()
     rng = random.Random(42)
     out = Path(args.out).resolve()
-    sizes = {"train": args.train, "dev": args.dev, "test": args.dev, "fleurs_test": args.dev}
+    sizes = {"train": args.train, "dev": args.dev, "test": args.dev}
     (out / "clean").mkdir(parents=True, exist_ok=True)
     for split, n in sizes.items():
         rows = []
@@ -62,7 +62,7 @@ def main():
             text = " ".join(words)
             shown = text.capitalize() + "."  # like a real transcript: capital letter and punctuation
             wav = synth(text, rng)
-            sub = "usc/" + split if split != "fleurs_test" else "fleurs/test"
+            sub = "usc/" + split
             path = out / "raw" / sub / spk / f"{cid}.flac"
             path.parent.mkdir(parents=True, exist_ok=True)
             sf.write(path, wav, SR)

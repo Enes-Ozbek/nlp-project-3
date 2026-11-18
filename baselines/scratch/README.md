@@ -22,7 +22,7 @@ Training: AdamW (lr 1e-3, betas 0.9/0.98, weight decay 1e-3), 1500 warmup steps,
 python baselines/scratch/train.py --model ctc  --out-dir runs/a2_ctc
 python baselines/scratch/train.py --model rnnt --out-dir runs/a3_rnnt
 python baselines/scratch/predict.py --ckpt runs/a2_ctc/best.pt --split dev
-python baselines/scratch/predict.py --ckpt runs/a2_ctc/best.pt --split test fleurs_test --allow-test
+python baselines/scratch/predict.py --ckpt runs/a2_ctc/best.pt --split test --allow-test
 ```
 
 Outputs: `benchmark/predictions/A2_conformer-ctc__<split>.jsonl`, `benchmark/predictions/A3_conformer-rnnt__<split>.jsonl`, `benchmark/results/A2_conformer-ctc.json`, `benchmark/results/A3_conformer-rnnt.json` (all settings, per-epoch loss and dev WER, chosen epoch, RTF, package versions).

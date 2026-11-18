@@ -1,4 +1,4 @@
-"""C2: transcribe dev / test / fleurs_test with the best fine-tuned XLS-R checkpoint.
+"""C2: transcribe dev / test with the best fine-tuned XLS-R checkpoint.
 
 Writes:
   benchmark/predictions/C2_xlsr-300m-ctc__<split>.jsonl
@@ -8,7 +8,7 @@ Writes:
 
 Run from the repo root:
     python xlsr_ctc/predict.py --model /kaggle/working/xlsr_run/best --split dev --logits-dir /kaggle/working/logits
-    python xlsr_ctc/predict.py --model <hf-user>/<repo> --revision <hash> --split test fleurs_test --allow-test --logits-dir ...
+    python xlsr_ctc/predict.py --model <hf-user>/<repo> --revision <hash> --split test --allow-test --logits-dir ...
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", required=True, help="folder (e.g. <out>/best) or Hugging Face repo id")
     ap.add_argument("--revision", default=None, help="commit hash when --model is a Hugging Face repo")
-    ap.add_argument("--split", nargs="+", default=["dev"], choices=["dev", "test", "fleurs_test"])
+    ap.add_argument("--split", nargs="+", default=["dev"], choices=["dev", "test"])
     ap.add_argument("--allow-test", action="store_true", help="needed for test sets (after the freeze)")
     ap.add_argument("--logits-dir", default=None, help="save log-probabilities here (for C3)")
     ap.add_argument("--batch-size", type=int, default=16)

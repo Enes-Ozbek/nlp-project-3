@@ -1,11 +1,11 @@
-"""A2 / A3: transcribe dev / test / fleurs_test with the best epoch (best.pt).
+"""A2 / A3: transcribe dev / test with the best epoch (best.pt).
 
 Writes benchmark/predictions/<system>__<split>.jsonl and adds RTF + quick WER to
 benchmark/results/<system>.json.
 
 Run from the repo root:
     python baselines/scratch/predict.py --ckpt /kaggle/working/a2_ctc/best.pt --split dev
-    python baselines/scratch/predict.py --ckpt .../best.pt --split test fleurs_test --allow-test   # after the freeze
+    python baselines/scratch/predict.py --ckpt .../best.pt --split test --allow-test   # after the freeze
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from train import SYSTEMS, decode_all, read_audio_all  # noqa: E402
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ckpt", required=True)
-    ap.add_argument("--split", nargs="+", default=["dev"], choices=["dev", "test", "fleurs_test"])
+    ap.add_argument("--split", nargs="+", default=["dev"], choices=["dev", "test"])
     ap.add_argument("--allow-test", action="store_true")
     ap.add_argument("--clean-dir", default=None)
     ap.add_argument("--limit", type=int, default=None)

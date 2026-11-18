@@ -44,7 +44,7 @@ Part of a university course project (COE025, Project 3). Code: {repo_url}
 
 - Train: {train_clips} clips, {train_hours} h, whole speakers chosen from the official USC train split (seed 42), after the team's cleaning steps.
 - Checkpoint chosen on the official USC dev split (step {best_step}).
-- Test: official USC test (speakers not in train) and FLEURS `uz_uz` test.
+- Test: official USC test (speakers not in train).
 - Text is lowercase Latin Uzbek with one apostrophe form (`o'`, `g'`, `'`) and no punctuation.
 
 ## Results (greedy decoding, no language model)
@@ -78,7 +78,7 @@ print(processor.batch_decode(ids)[0])
 
 ## Data licenses
 
-USC: MIT on the Hugging Face card, CC BY 4.0 in the paper (https://arxiv.org/abs/2107.14419). FLEURS: CC BY 4.0.
+USC: MIT on the Hugging Face card, CC BY 4.0 in the paper (https://arxiv.org/abs/2107.14419).
 """
 
 
@@ -94,9 +94,9 @@ def main():
     log_path = RESULTS_DIR / f"{SYSTEM}.json"
     log = json.loads(log_path.read_text(encoding="utf-8")) if log_path.exists() else {}
     runs = log.get("runs", {})
-    names = {"dev": "USC dev", "test": "USC test", "fleurs_test": "FLEURS uz_uz test"}
+    names = {"dev": "USC dev", "test": "USC test"}
     rows = "\n".join(f"| {names[s]} | {runs[s]['wer_quick']:.3f} | {runs[s]['cer_quick']:.3f} |"
-                     for s in ("dev", "test", "fleurs_test") if s in runs) or "| (not run yet) | | |"
+                     for s in ("dev", "test") if s in runs) or "| (not run yet) | | |"
     hp = log.get("hyperparameters", {})
     keep = ("lr", "warmup_steps", "batch_size", "grad_accum", "effective_batch", "total_steps", "optimizer",
             "scheduler", "fp16", "feature_encoder", "mask_time_prob", "dropouts")

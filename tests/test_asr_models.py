@@ -1,4 +1,4 @@
-"""Checks for the code of A2, A3, A8/A9 and C2 (CPU only, about 30 seconds).
+"""Checks for the code of A2, A3 and C2 (CPU only, about 30 seconds).
 
     pytest tests/test_asr_models.py
 """
@@ -9,8 +9,7 @@ import pytest
 import torch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT), str(ROOT / "baselines" / "scratch"), str(ROOT / "xlsr_ctc"),
-                str(ROOT / "baselines" / "nvidia_fastconformer")]
+sys.path[:0] = [str(ROOT), str(ROOT / "baselines" / "scratch"), str(ROOT / "xlsr_ctc")]
 
 from common.asr_data import _fallback_normalize  # noqa: E402
 from model import build_model, rnnt_loss_torch  # noqa: E402
@@ -92,15 +91,3 @@ def test_xlsr_vocab_and_labels(tmp_path):
     assert proc.tokenizer.decode(ids) == "salom o'zbek"
     labels = ctc_labels(proc)
     assert labels[vocab[PAD]] == "" and " " in labels
-
-
-def test_nemo_output_to_text():
-    from nemo_utils import _texts
-
-    class Hyp:
-        def __init__(self, text):
-            self.text = text
-
-    assert _texts([Hyp("a"), Hyp("b")]) == ["a", "b"]  # newer NeMo: list of hypotheses
-    assert _texts(([Hyp("a")], None)) == ["a"]  # older NeMo: (best, all)
-    assert _texts(["x", "y"]) == ["x", "y"]

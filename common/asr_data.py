@@ -34,8 +34,8 @@ PRED_DIR = _OUT_ROOT / "predictions"
 RESULTS_DIR = _OUT_ROOT / "results"
 SAMPLE_RATE = 16000
 SEED = 42
-SPLITS = ("train", "dev", "test", "fleurs_test")
-TEST_SPLITS = ("test", "fleurs_test")
+SPLITS = ("train", "dev", "test")
+TEST_SPLITS = ("test",)
 
 # ---------------------------------------------------------------- seeds
 
@@ -153,7 +153,7 @@ def load_audio(row: dict) -> np.ndarray:
 
 def write_predictions(system: str, testset: str, ids: list[str], hyps: list[str]) -> Path:
     """benchmark/predictions/<system>__<testset>.jsonl, one {"id", "hyp"} per line."""
-    assert testset in ("dev", "test", "fleurs_test"), testset
+    assert testset in ("dev", "test"), testset
     PRED_DIR.mkdir(parents=True, exist_ok=True)
     out = PRED_DIR / f"{system}__{testset}.jsonl"
     with open(out, "w", encoding="utf-8") as f:
