@@ -33,7 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "baselines" / "nvidia_fastconformer")]
 from common.asr_data import (SEED, clip_seconds, env_info, normalize, read_split,  # noqa: E402
                              resolve_path, set_seed, update_run_log)
-from nemo_utils import MODEL_ID, count_params, load_model  # noqa: E402
+from nemo_utils import MODEL_ID, count_params, load_model, transcribe_rows  # noqa: E402
 
 SYSTEM_PREFIX = "C4"
 APOSTROPHE_FORMS = ["'", "ʻ", "ʼ", "‘", "’"]
@@ -56,11 +56,17 @@ def parse_args():
     ap.add_argument("--val-limit", type=int, default=1000, help="dev clips scored after each epoch (fixed sample)")
     ap.add_argument("--max-train-seconds", type=float, default=30.0)
     ap.add_argument("--num-workers", type=int, default=4)
-    ap.add_argument("--precision", default="16-mixed", help="Lightning precision (T4: 16-mixed)")
+    ap.add_argument("--precision", default="32-true",
+                    help="Lightning precision. 32-true: with 16-mixed the NVIDIA model gives only <unk> on a T4")
+    ap.add_argument("--max-start-wer", type=float, default=0.5,
+                    help="stop if the start model's dev-check WER is above this (A8 is about 0.14): something is wrong")
     ap.add_argument("--limit-train", type=int, default=None, help="only the first N train clips (quick check)")
     ap.add_argument("--no-start-check", action="store_true",
                     help="skip scoring the start model on the dev check before training")
     ap.add_argument("--no-save", action="store_true", help="no checkpoint and no best.nemo (learning-rate search)")
+    ap.add_argument("--memory-probe", action="store_true",
+                    help="one training step on the longest train clips and one dev check on the longest dev clips, "
+                         "to see if this --batch-size fits in GPU memory (no model written)")
     return ap.parse_args()
 
 
@@ -124,6 +130,27 @@ def ds_config(manifest: Path, batch_size: int, shuffle: bool, workers: int, max_
             "tarred_audio_filepaths": None, "use_lhotse": False}
 
 
+def diagnose(model, dev_rows: list[dict]) -> None:
+    """Printed when the start check fails: audio as NeMo's loader reads it vs as A8 reads it, and A8's output."""
+    import numpy as np
+    import torch
+
+    from common.asr_data import load_audio
+
+    try:
+        sig, sig_len = next(iter(model._validation_dl))[:2]
+        for i, r in enumerate(dev_rows[:3]):
+            x = sig[i, : int(sig_len[i])].float()
+            a = load_audio(r)
+            print(f"{r['id']}: NeMo loader {len(x)} samples, max {x.abs().max():.3f}, mean {x.abs().mean():.4f} | "
+                  f"A8 loader {len(a)} samples, max {np.abs(a).max():.3f}, mean {np.abs(a).mean():.4f}")
+        model.eval()
+        with torch.no_grad():
+            print("transcribe() as in A8:", transcribe_rows(model, dev_rows[:3], batch_size=3, progress=False))
+    except Exception as err:  # the diagnosis must not hide the real message
+        print(f"diagnosis failed: {err!r}")
+
+
 def main():
     args = parse_args()
     set_seed(SEED)
@@ -137,7 +164,7 @@ def main():
     if args.start_nemo:
         from nemo.collections.asr.models import ASRModel
 
-        model, sha = ASRModel.restore_from(args.start_nemo, map_location=torch.device("cpu")), None
+        model, sha = ASRModel.restore_from(args.start_nemo, map_location=torch.device("cpu")).eval(), None
     else:
         model, sha = load_model(args.revision, device="cpu")
     start_model = args.start_nemo or MODEL_ID
@@ -150,7 +177,20 @@ def main():
     train_rows = [r for r in read_split("train", args.clean_dir, args.limit_train)
                   if clip_seconds(r) <= args.max_train_seconds]
     dev_rows = read_split("dev", args.clean_dir)
-    if args.val_limit and len(dev_rows) > args.val_limit:
+    if args.memory_probe:
+        # Every batch is padded to its longest clip and its longest text, so the largest possible batch holds the
+        # longest clip and the longest text. Two optimizer steps (the second one also holds the optimizer's state,
+        # as in training), no shuffling, and that largest batch comes last.
+        def worst_order(rows: list[dict], n: int) -> list[dict]:
+            longest = sorted(rows, key=clip_seconds, reverse=True)[:n]
+            most_text = max(rows, key=lambda r: len(r["transcript"]))
+            rest = sorted((r for r in longest if r is not most_text), key=clip_seconds)
+            return rest[len(rest) - (n - 1):] + [most_text]
+
+        train_rows = worst_order(train_rows, 2 * args.batch_size * args.grad_accum)
+        dev_rows = worst_order(dev_rows, args.batch_size)
+        args.epochs, args.no_save, args.no_start_check = 1, True, True
+    elif args.val_limit and len(dev_rows) > args.val_limit:
         dev_rows = sorted(random.Random(SEED).sample(dev_rows, args.val_limit), key=lambda r: r["id"])
 
     def target(transcript: str) -> str:   # team-normalized text, apostrophes in the tokenizer's form
@@ -209,6 +249,8 @@ def main():
             if not fitting:
                 m = {k: v for k, v in m.items() if k.startswith("val_")}
             rec.update(m)
+            if torch.cuda.is_available():   # highest GPU memory use so far
+                rec["gpu_gb"] = round(torch.cuda.max_memory_allocated() / 2**30, 2)
             with open(log_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(rec) + "\n")
             print("epoch log:", rec, flush=True)
@@ -223,7 +265,8 @@ def main():
                          enable_checkpointing=not args.no_save)
     model.set_trainer(trainer)
     with open_dict(model.cfg):
-        model.cfg.train_ds = OmegaConf.create(ds_config(out / "train_manifest.jsonl", args.batch_size, True,
+        model.cfg.train_ds = OmegaConf.create(ds_config(out / "train_manifest.jsonl", args.batch_size,
+                                                        not args.memory_probe,
                                                         args.num_workers, args.max_train_seconds))
         model.cfg.validation_ds = OmegaConf.create(ds_config(out / "dev_manifest.jsonl", args.batch_size, False,
                                                              args.num_workers, 60.0))
@@ -238,8 +281,22 @@ def main():
     # ---- dev check of the start model (= A8 on this dev sample), train, keep the epoch with the lowest dev WER
     if not args.no_start_check:
         trainer.validate(model, verbose=False)
+        start_wer = float(trainer.callback_metrics.get("val_wer", float("nan")))
+        if not start_wer <= args.max_start_wer:
+            diagnose(model, dev_rows)
+            raise SystemExit(f"The start model scores WER {start_wer:.2f} on the dev check, but as A8 the same model "
+                             "gets about 0.14. Something is wrong (audio loading or number precision): stopping "
+                             "before training.")
+    # the loaded model is in eval mode (dropout and SpecAugment off, and cuDNN cannot train the LSTM in eval
+    # mode); Lightning keeps the mode it finds, so switch to training mode here
+    model.train()
     trainer.fit(model)
     train_hours = round((time.time() - t0) / 3600, 2)
+    if args.memory_probe:
+        gpu = f", GPU memory used {torch.cuda.max_memory_allocated() / 2**30:.1f} GB" if torch.cuda.is_available() else ""
+        print(f"MEMORY OK: batch {args.batch_size} on the longest clips ({max(map(clip_seconds, train_rows)):.1f} s "
+              f"train, {max(map(clip_seconds, dev_rows)):.1f} s dev){gpu}", flush=True)
+        return
     if args.no_save:
         print(f"Done after {train_hours} h (--no-save: no model written)")
         return

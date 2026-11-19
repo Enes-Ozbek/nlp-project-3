@@ -19,9 +19,9 @@ The model has one encoder and two decoders, so C4 gives two rows:
 | Audio | `data/clean/train.csv`; silence trimming through `offset`/`duration` in the NeMo manifest |
 | Learning rate | chosen on dev: 5e-5, 1e-4, 2e-4 and 4e-4 each train 1 epoch from the start model and are scored on the same 1,000 dev clips; the best one is used (`benchmark/results/C4_lr_search.json`) |
 | Optimizer | AdamW (0.9, 0.98), weight decay 1e-3, warmup 500 steps, then cosine to 1e-6 |
-| Batch | 16 clips x 2 accumulation steps = 32 |
-| Other | fp16 mixed precision, gradient clipping 1.0, the model's own SpecAugment, seed 42 |
-| Checkpoint choice | dev WER (transducer head) on a fixed sample of 1,000 dev clips (seed 42) after every epoch; the best epoch is kept. The start model is scored on the same clips before training, so the gain is visible in the log |
+| Batch | 16 clips x 2 accumulation steps = 32. Before training, `--memory-probe` runs one step on the longest clips; if 16 clips do not fit in the T4's memory, the notebook uses 8 x 4 (or 4 x 8), so the total stays 32 |
+| Other | full fp32 precision (with fp16 the start model wrote only `<unk>` on a T4), gradient clipping 1.0, the model's own SpecAugment, seed 42 |
+| Checkpoint choice | dev WER (transducer head) on a fixed sample of 1,000 dev clips (seed 42) after every epoch; the best epoch is kept. The start model is scored on the same clips before training, so the gain is visible in the log. If that start score is above 50% WER (A8 gets about 14%), training stops before it begins, because something is broken |
 | Length | as many epochs as fit in the Kaggle time (from the speed measured in the learning-rate search), at most 30; `--max-hours` stops it in any case |
 
 ## Files
