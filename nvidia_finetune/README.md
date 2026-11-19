@@ -29,7 +29,7 @@ The model has one encoder and two decoders, so C4 gives two rows:
 - `train.py`: writes the NeMo manifests, trains, keeps the best epoch, saves `<out-dir>/best.nemo` and `train_log.jsonl`.
 - `predict.py`: C4a and C4b on `dev` / `test` (test needs `--allow-test`), from `best.nemo` or from Hugging Face.
 - `push_to_hub.py`: uploads `best.nemo` with a model card to Hugging Face. The token comes from Kaggle Secrets or `huggingface-cli login`, never from code.
-- `requirements.txt`: pinned NeMo packages (NeMo needs its own environment). `numba-cuda` runs the RNN-T loss on the GPU; the Kaggle notebook installs it only when numba cannot run CUDA kernels yet.
+- `requirements.txt`: pinned NeMo packages (same versions as A8/A9). `numba-cuda` runs the RNN-T loss on the GPU; the Kaggle notebook installs it only when numba cannot run CUDA kernels yet.
 
 ## Run (from the repo root)
 

@@ -1,4 +1,4 @@
-# C4 (fine-tuning the NVIDIA FastConformer with NeMo). Same packages as A8/A9; on Kaggle they go into their own environment.
+# C4 (fine-tuning the NVIDIA FastConformer with NeMo). Same packages as A8/A9.
 # Exact versions used; rewritten by common/pin_requirements.py after each Kaggle run.
 nemo_toolkit[asr]==3.0.0
 torch==2.11.0+cu130
