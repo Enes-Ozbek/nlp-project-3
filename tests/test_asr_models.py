@@ -6,7 +6,8 @@ import sys
 from pathlib import Path
 
 import pytest
-import torch
+
+torch = pytest.importorskip("torch")  # the model tests need torch; skipped where it is not installed
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "baselines" / "scratch"), str(ROOT / "xlsr_ctc")]

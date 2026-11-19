@@ -22,6 +22,17 @@ Start checkpoint: [`facebook/wav2vec2-xls-r-300m`](https://huggingface.co/facebo
 - `push_to_hub.py`: uploads the best checkpoint with a model card to Hugging Face. The token comes from Kaggle Secrets or `huggingface-cli login`, never from code.
 - `xlsr_lib.py`: vocabulary, data loading, batching, decoding.
 
+## C2long: C2 trained further
+
+After the first run (15 epochs, dev WER still going down at the end), C2 is trained 20 more epochs from its own
+checkpoint on Hugging Face: lr 1e-4, warmup 300 steps, same data and settings, same letter vocabulary (taken from the
+checkpoint). Its results have their own names (`C2long_xlsr-300m-ctc`), set with the `XLSR_SYSTEM` variable:
+
+```bash
+XLSR_SYSTEM=C2long_xlsr-300m-ctc python xlsr_ctc/train.py --out-dir runs/xlsr_long --model-id <hf-user>/<C2 repo> --lr 1e-4 --warmup-steps 300 --epochs 20
+XLSR_SYSTEM=C2long_xlsr-300m-ctc python xlsr_ctc/predict.py --model runs/xlsr_long/best --split dev
+```
+
 ## Run (from the repo root)
 
 ```bash

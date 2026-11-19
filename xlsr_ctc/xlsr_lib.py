@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import random
 import sys
 from pathlib import Path
@@ -14,7 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from common.asr_data import SAMPLE_RATE, RTFTimer, clip_seconds, load_audio, normalize  # noqa: E402
 
 UNK, PAD, SEP = "[UNK]", "[PAD]", "|"
-SYSTEM = "C2_xlsr-300m-ctc"
+# XLSR_SYSTEM lets a second training stage write its own result files (e.g. C2long) next to C2.
+SYSTEM = os.environ.get("XLSR_SYSTEM", "C2_xlsr-300m-ctc")
 BASE_MODEL = "facebook/wav2vec2-xls-r-300m"
 
 

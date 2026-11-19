@@ -1,6 +1,7 @@
 """C2: fine-tune facebook/wav2vec2-xls-r-300m with a CTC head on our 25 h USC train split.
 
-- Character vocabulary from the normalized train transcripts ('|' = word separator).
+- Character vocabulary from the normalized train transcripts ('|' = word separator); when training further
+  from our own fine-tuned model (C2long), that model's vocabulary is kept.
 - Feature encoder (CNN) frozen, gradient checkpointing, fp16 on GPU.
 - Dev WER every --eval-every steps; the best dev checkpoint is kept in <out>/best.
 - A full checkpoint (<out>/last) is saved regularly, so a stopped run continues where it stopped:
@@ -86,6 +87,19 @@ def load_model(args, processor, device, sha, resume_dir: Path | None):
     return model.to(device)
 
 
+def model_vocab(model_id: str, sha: str | None) -> Path | None:
+    """vocab.json of a model already fine-tuned with this code (C2 -> C2long), else None (base model)."""
+    if Path(model_id).is_dir():
+        p = Path(model_id) / "vocab.json"
+        return p if p.exists() else None
+    try:
+        from huggingface_hub import hf_hub_download
+
+        return Path(hf_hub_download(model_id, "vocab.json", revision=sha))
+    except Exception:   # the XLS-R base model has no vocab.json
+        return None
+
+
 def save_checkpoint(out: Path, model, opt, sched, scaler, state: dict) -> None:
     tmp = out / "last_tmp"
     shutil.rmtree(tmp, ignore_errors=True)
@@ -125,10 +139,16 @@ def main():
           f"skipped {len(too_long)} over {args.max_train_seconds}s and {dropped_empty} with empty text")
 
     # ---- vocabulary / processor (reused on resume so ids never change)
+    sha = None if args.tiny else hf_revision(args.model_id, args.revision)
     proc_dir = out / "processor"
     if not (proc_dir / "vocab.json").exists():
         proc_dir.mkdir(parents=True, exist_ok=True)
-        save_json(proc_dir / "vocab.json", build_vocab(texts))
+        start_vocab = model_vocab(args.model_id, sha)
+        if start_vocab:   # training further from our own fine-tuned model: keep its letter ids
+            print(f"Using the vocabulary of {args.model_id}")
+            shutil.copy(start_vocab, proc_dir / "vocab.json")
+        else:
+            save_json(proc_dir / "vocab.json", build_vocab(texts))
     processor = make_processor(proc_dir / "vocab.json")
     print(f"vocabulary ({len(processor.tokenizer)}): {''.join(sorted(processor.tokenizer.get_vocab()))}")
     label_ids = [processor.tokenizer(t).input_ids for t in texts]
@@ -136,7 +156,6 @@ def main():
     assert not any(unk in ids for ids in label_ids), "train text has characters outside the vocabulary"
 
     # ---- model, optimizer, schedule
-    sha = None if args.tiny else hf_revision(args.model_id, args.revision)
     model = load_model(args, processor, device, sha, (out / "last" / "model") if resume else None)
     n_params = sum(p.numel() for p in model.parameters())
     trainable = [p for p in model.parameters() if p.requires_grad]
